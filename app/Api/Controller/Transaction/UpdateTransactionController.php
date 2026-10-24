@@ -25,13 +25,8 @@ final class UpdateTransactionController extends Controller
         ]);
 
         if ($validator->fails()) {
-            $errors = [];
-            foreach ($validator->errors()->messages() as $key => $messages) {
-                $errors[$key] = $messages[0];
-            }
             return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $errors
+                'error' => $validator->errors()->first(),
             ], 400);
         }
 

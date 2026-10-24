@@ -34,8 +34,8 @@ FE → HTTP Request → JWT Middleware → Controller → QueryBus → QueryHand
 ## Request Lifecycle Overview
 
 ### 1. Kernel Layer (HTTP Entry Point)
-*   **Purpose:** Handles the incoming HTTP request and bootstraps the Symfony application.
-*   **Flow:** `Incoming HTTP Request → Kernel`
+*   **Purpose:** Handles the incoming HTTP request and bootstraps the Laravel application.
+*   **Flow:** `Incoming HTTP Request → bootstrap/app.php → Routing`
 
 ### 2. Security Layer
 *   **Purpose:** Handles authentication and authorization.
@@ -43,38 +43,37 @@ FE → HTTP Request → JWT Middleware → Controller → QueryBus → QueryHand
     *   JWT authentication (resolving endpoints via tokens).
     *   Checking user permissions.
     *   Resolving the authenticated `Customer` entity.
-    *   Flow: `FE → Kernel → Security`
+    *   Flow: `FE → Routing → JWTAuthMiddleware → Controller`
 
 ### 3. Input Validation & Middleware Layer
-*   **Purpose:** Automatically binds, deserializes, and validates HTTP request data (body, query parameters, and authenticated user) directly into controller arguments.
-*   **Key Attributes Used:**
-    *   `Laravel Validator` — deserializes and validates JSON request bodies into DTO models.
-    *   `Query parameters validation` — maps and validates GET query parameters into search/filter DTOs.
-    *   `JWT Middleware user resolution` — extracts the currently authenticated user from Symfony Security.
+*   **Purpose:** Validates HTTP request data (body and query parameters) and authenticated user attributes.
+*   **Key Components Used:**
+    *   `Laravel Validator` — validates JSON request bodies with explicit error messages.
+    *   `Query parameters handling` — parses and validates GET query parameters into search/filter criteria.
+    *   `JWTAuthMiddleware` — extracts and validates the Bearer token, setting the authenticated `Customer`.
 
 ### 4. DTO Layer (Request Models)
 *   **Purpose:** Strongly typed input definitions protecting application boundaries.
 *   **Structure:**
-    *   [app/Application/Customer/DTO/](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Application/Customer/DTO) (e.g. `RegisterRequest`, `LoginRequest`)
-    *   [app/Application/Transaction/DTO/](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Application/Transaction/DTO) (e.g. `AmountTransactionRequest`, `FilterTransactionRequest`)
+    *   [app/Application/Customer/DTO/](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Application/Customer/DTO) (e.g. `RegisterRequest`, `LoginRequest`)
+    *   [app/Application/Transaction/DTO/](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Application/Transaction/DTO) (e.g. `AmountTransactionRequest`, `FilterTransactionRequest`)
 *   **Characteristics:**
     *   Strict typing and readonly attributes.
-    *   Symfony validation constraints (`#[Assert\NotBlank]`, `#[Assert\Positive]`, etc.).
 
 ### 5. Controller Layer (HTTP Orchestration)
 *   **Purpose:** Coordinates request handling without containing business or persistence logic.
 *   **Characteristics:**
-    *   No validation logic.
-    *   No database interaction.
+    *   No business rules.
+    *   No direct database queries.
     *   Dispatches commands or queries to the bus.
 *   **Structure:**
-    *   [app/Api/Controller/Customer/](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Api/Controller/Customer) (e.g. `RegisterController`, `LoginController`)
-    *   [app/Api/Controller/Transaction/](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Api/Controller/Transaction) (e.g. `CreateTransactionController`, `GetTransactionListController`)
+    *   [app/Api/Controller/Customer/](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Api/Controller/Customer) (e.g. `RegisterController`, `LoginController`)
+    *   [app/Api/Controller/Transaction/](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Api/Controller/Transaction) (e.g. `CreateTransactionController`, `GetTransactionListController`)
 
-### 6. Messenger Bus
+### 6. Command & Query Bus
 *   **Purpose:** Decouples controllers from handlers.
 *   **Structure:**
-    *   [app/Infrastructure/Bus/](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Infrastructure/Bus) (e.g. `CommandBus` and `QueryBus` wrapping Symfony Messenger)
+    *   [app/Infrastructure/Bus/](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Infrastructure/Bus) (e.g. `CommandBus` and `QueryBus`)
 
 ### 7. Handler Layer (Application Logic)
 *   **Purpose:** Implements application-level orchestration and transactional boundaries.
@@ -83,30 +82,30 @@ FE → HTTP Request → JWT Middleware → Controller → QueryBus → QueryHand
     *   Trigger state modifications on domain aggregates.
     *   Save changed entities back to persistent storage.
 *   **Structure:**
-    *   [app/Application/Customer/Command/](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Application/Customer/Command) (e.g. `RegisterCustomerHandler`)
-    *   [app/Application/Transaction/Command/](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Application/Transaction/Command) (e.g. `CreateTransactionHandler`)
-    *   [app/Application/Transaction/Query/](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Application/Transaction/Query) (e.g. `GetTransactionListHandler`)
+    *   [app/Application/Customer/Command/](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Application/Customer/Command) (e.g. `RegisterCustomerHandler`, `LoginCustomerHandler`)
+    *   [app/Application/Transaction/Command/](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Application/Transaction/Command) (e.g. `CreateTransactionHandler`, `UpdateTransactionHandler`, `DeleteTransactionHandler`)
+    *   [app/Application/Transaction/Query/](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Application/Transaction/Query) (e.g. `GetTransactionListHandler`, `GetTransactionHandler`)
 
 ### 8. Repository Layer (Data Access Interfaces)
 *   **Purpose:** Encapsulate database retrieval and persistence.
 *   **Structure:**
-    *   Domain interfaces (Ports): [app/Domain/Customer/CustomerRepositoryInterface.php](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Domain/Customer/CustomerRepositoryInterface.php) and [app/Domain/Transaction/TransactionRepositoryInterface.php](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Domain/Transaction/TransactionRepositoryInterface.php).
-    *   Infrastructure implementations (Adapters): [app/Infrastructure/Repository/](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Infrastructure/Repository) and [app/Infrastructure/Query/](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Infrastructure/Query).
+    *   Domain interfaces (Ports): [app/Domain/Customer/CustomerRepositoryInterface.php](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Domain/Customer/CustomerRepositoryInterface.php) and [app/Domain/Transaction/TransactionRepositoryInterface.php](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Domain/Transaction/TransactionRepositoryInterface.php).
+    *   Infrastructure implementations (Adapters): [app/Infrastructure/Repository/](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Infrastructure/Repository) and [app/Infrastructure/Query/](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Infrastructure/Query).
 
 ### 9. Domain Layer (Entities & Exceptions)
 *   **Purpose:** Represent core business models, rules, and validation invariants.
 *   **Structure:**
-    *   [app/Domain/Customer/](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Domain/Customer)
-    *   [app/Domain/Transaction/](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Domain/Transaction)
+    *   [app/Domain/Customer/](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Domain/Customer)
+    *   [app/Domain/Transaction/](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Domain/Transaction)
 *   **Characteristics:**
-    *   Free from framework/HTTP concerns.
+    *   Free from HTTP concerns.
     *   Contains database mapping annotations (Eloquent).
 
 ### 10. Response Layer (Output Models / View DTOs)
 *   **Purpose:** Defines structured, immutable payloads returned by the API.
 *   **Examples:**
-    *   [AuthView.php](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Application/Customer/DTO/AuthView.php)
-    *   [TransactionView.php](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Application/Transaction/DTO/TransactionView.php)
+    *   [AuthView.php](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Application/Customer/DTO/AuthView.php)
+    *   [TransactionView.php](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Application/Transaction/DTO/TransactionView.php)
 *   **Benefits:**
     *   Prevents exposing internal ORM entity relations directly to JSON.
     *   Decouples API contract representation from the database schema.
@@ -116,9 +115,11 @@ FE → HTTP Request → JWT Middleware → Controller → QueryBus → QueryHand
 ## Exception Handling & Validation
 
 1.  **Request Payload & Query Validation:**
-    Occurs automatically via Symfony's native attributes (`Laravel Validator` and `Query parameters validation`). Any validation violations are globally caught by [bootstrap/app.php](file:///d:/KA/tests/github/REST-API-BANK_backend/app/EventListener/bootstrap/app.php.php) and formatted into a structured `400 Bad Request` JSON response.
+    Validation violations are formatted into a structured `400 Bad Request` JSON response returning only the first error string: `{"error": "<message>"}`.
 2.  **Domain Exception Handling:**
-    Domain-level exceptions (e.g. `CustomerNotFoundException`, `TransactionNotFoundException`) extend [DomainException](file:///d:/KA/tests/github/REST-API-BANK_backend/app/Domain/Exception/DomainException.php) which defines the target HTTP status. They are globally intercepted by [bootstrap/app.php](file:///d:/KA/tests/github/REST-API-BANK_backend/app/EventListener/bootstrap/app.php.php) and converted to consistent JSON responses.
+    Domain-level exceptions (e.g. `CustomerAlreadyExistsException`, `CustomerNotFoundException`, `InvalidCredentialsException`, `TransactionNotFoundException`) extend [DomainException](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/app/Domain/Exception/DomainException.php) which defines the target HTTP status. They are globally intercepted by [bootstrap/app.php](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/bootstrap/app.php) and converted to consistent `{"error": "<message>"}` JSON responses.
+3.  **Global Fallback & System Errors:**
+    HTTP exceptions (404, 405) and generic unhandled exceptions (500) are also intercepted by [bootstrap/app.php](file:///d:/KA/tests/github/REST-API-BANK_backend_laravel/bootstrap/app.php) returning `{"error": "<message>"}` or `{"error": "Internal Server Error"}` to strictly maintain the Frontend contract.
 
 ---
 
@@ -127,7 +128,7 @@ FE → HTTP Request → JWT Middleware → Controller → QueryBus → QueryHand
 ```
 app/
   Api/                      # Primary (Driving) Adapters
-    Controller/             # HTTP Entry Points
+    Controller/             # HTTP Entry Points (Customer, Transaction)
   Domain/                   # Core business logic & entities
     Customer/               # Customer domain entity, interfaces, exceptions
     Transaction/            # Transaction domain entity, interfaces, exceptions
@@ -136,11 +137,17 @@ app/
     Customer/               # Customer Commands, Handlers, DTOs, Ports
     Transaction/            # Transaction Commands, Queries, Handlers, DTOs, Ports
   Infrastructure/           # Secondary (Driven) Adapters
-    Bus/                    # CQRS Bus Messenger implementations
-    Query/                  # Optimized read projections (SQL/DQL)
+    Bus/                    # CQRS CommandBus & QueryBus implementations
+    Middleware/             # HTTP Middlewares (JWTAuthMiddleware)
+    Query/                  # Optimized read projections (Eloquent)
     Repository/             # Eloquent database mapping repositories
-    Security/               # Password hashing & Token generation adapters
-  EventListener/            # Global event listeners (Exception listener)
+    Security/               # Password hashing & JWT Token generation adapters
+bootstrap/
+  app.php                   # Application configuration, routing & global exception handling
+config/
+  cors.php                  # Cross-Origin Resource Sharing (CORS) configuration
+routes/
+  api.php                   # API route definitions
 ```
 
 ---

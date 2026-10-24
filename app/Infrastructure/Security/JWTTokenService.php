@@ -18,6 +18,7 @@ final class JWTTokenService implements TokenServiceInterface
         $payload = [
             'sub' => $customer->getId(),
             'name' => $customer->getName(),
+            'username' => $customer->getName(),
             'iat' => time(),
             'exp' => time() + 3600
         ];
